@@ -76,23 +76,23 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
             async with session.get(url, headers={'User-Agent': USER_AGENT}) as response:
                 data = await response.text()
                 if '选课成功' in data:
-                    logging.error('Course {} is selected successfully!'.format(section))
+                    logging.debug('Course {} is selected successfully!'.format(section))
                     return section, True
                 elif '冲突' in data:
-                    logging.error('Conflict courses are selected!')
+                    logging.debug('Conflict courses are selected!')
                     return section, False
                 elif '登录失败' in data:
-                    logging.error('Unknown error occurred!')
+                    logging.debug('Unknown error occurred!')
                     return section, False
                 else:
-                    logging.error('Failed to select course {}. Retrying...'.format(section))
+                    logging.debug('Failed to select course {}. Retrying...'.format(section))
                     if interval == -1:
                         await asyncio.sleep(random.random())
                     else:
                         await asyncio.sleep(interval)
                     attempt_count += 1
                 if maximum_attempts != -1 and attempt_count > maximum_attempts:
-                    logging.error('Maximum attempts reached.')
+                    logging.debug('Maximum attempts reached.')
                     return section, False
 
 
