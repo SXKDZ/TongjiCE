@@ -1,10 +1,10 @@
 """
-TongjiCE 1.1
-Automatically course selection for Tongji University
+TongjiCE - Automatically course selection for Tongji University
 
-by SXKDZ with support of lisirrx
+By SXKDZ with support of lisirrx
+https://sxkdz.org
 
-Disclaimer: use with your own discretion
+Disclaimer: use with your own discretion!
 """
 import re
 import sys
