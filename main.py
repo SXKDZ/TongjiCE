@@ -13,6 +13,7 @@ import random
 import asyncio
 import aiohttp
 import getpass
+import logging
 import _jsonnet
 import calendar
 from itertools import groupby
@@ -20,6 +21,10 @@ from collections import defaultdict
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode
 from splinter import Browser
 from splinter.exceptions import ElementDoesNotExist
+
+USER_AGENT = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) '
+              'AppleWebKit/537.36 (KHTML, like Gecko) '
+              'Chrome/63.0.3239.84 Safari/537.36')
 
 
 def get_login_cookies(browser, userid, password):
@@ -64,29 +69,30 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
         else:
             interval = int(interval)
         if maximum_attempts == 'infinity':
-            maximum_attempts = sys.maxsize
+            maximum_attempts = -1
         attempt_count = 0
         while True:
-            print('Starting attempt #{} accessing {}'.format(attempt_count, url))
-            async with session.get(url) as response:
+            logging.error('Starting attempt #{} by accessing {}'.format(attempt_count, url))
+            async with session.get(url, headers={'User-Agent': USER_AGENT}) as response:
                 data = await response.text()
                 if '选课成功' in data:
-                    print('Selected successfully!')
+                    logging.error('Course {} is selected successfully!'.format(section))
                     return section, True
                 elif '冲突' in data:
-                    print('Conflict courses are selected!')
+                    logging.error('Conflict courses are selected!')
                     return section, False
                 elif '登录失败' in data:
-                    print('Unknown error occurred!')
+                    logging.error('Unknown error occurred!')
                     return section, False
                 else:
+                    logging.error('Failed to select course {}. Retrying...'.format(section))
                     if interval == -1:
                         await asyncio.sleep(random.random())
                     else:
                         await asyncio.sleep(interval)
                     attempt_count += 1
-                if attempt_count > maximum_attempts:
-                    print('Maximum attempts reached.')
+                if maximum_attempts != -1 and attempt_count > maximum_attempts:
+                    logging.error('Maximum attempts reached.')
                     return section, False
 
 
@@ -116,7 +122,7 @@ def main():
             break
 
     if len(entrances) == 0:
-        print('No available entrance at present. Please come back later...')
+        print('No available entrances at present. Please come back later...')
         sys.exit(0)
 
     entrance_id = input('Enter the entrance ID: ')
