@@ -107,13 +107,17 @@ def main():
     while True:
         try:
             entrance = browser.find_by_id('electIndexNotice' + str(i)).first
+            title = entrance.find_by_tag('h2').first
+            link = entrance.find_by_text('进入选课>>>>')
+            entrances[i] = urljoin(entrance_navigation_link, link['href'])
+            print('{}: {}'.format(i, title.text))
+            i += 1
         except ElementDoesNotExist:
             break
-        title = entrance.find_by_tag('h2').first
-        link = entrance.find_by_text('进入选课>>>>')
-        entrances[i] = urljoin(entrance_navigation_link, link['href'])
-        print('{}: {}'.format(i, title.text))
-        i += 1
+
+    if len(entrances) == 0:
+        print('No available entrance at present. Please come back later...')
+        sys.exit(0)
 
     entrance_id = input('Enter the entrance ID: ')
     entrance_link = entrances[int(entrance_id)]
