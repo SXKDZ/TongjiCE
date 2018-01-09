@@ -72,27 +72,34 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
             maximum_attempts = -1
         attempt_count = 0
         while True:
-            logging.error('Starting attempt #{} by accessing {}'.format(attempt_count, url))
+            print('Starting attempt #{} by accessing {}'.format(attempt_count, url))
             async with session.get(url, headers={'User-Agent': USER_AGENT}) as response:
                 data = await response.text()
                 if '选课成功' in data:
-                    logging.debug('Course {} is selected successfully!'.format(section))
+                    print('Course {} is selected successfully!'.format(section))
                     return section, True
                 elif '冲突' in data:
-                    logging.debug('Conflict courses are selected!')
+                    print('Conflict courses are selected!')
                     return section, False
                 elif '登录失败' in data:
-                    logging.debug('Unknown error occurred!')
+                    print('Unknown error occurred!')
                     return section, False
+                elif '人数已满' in data:
+                    print('Failed to select course {} due to limitation on capacity. Retrying...'
+                          .format(section))
                 else:
-                    logging.debug('Failed to select course {}. Retrying...'.format(section))
-                    if interval == -1:
-                        await asyncio.sleep(random.random())
-                    else:
-                        await asyncio.sleep(interval)
-                    attempt_count += 1
+                    print('Unknown error orrurred!')
+                    print(data)
+                    return section, False
+
+                if interval == -1:
+                    await asyncio.sleep(random.random())
+                else:
+                    await asyncio.sleep(interval)
+                attempt_count += 1
+
                 if maximum_attempts != -1 and attempt_count > maximum_attempts:
-                    logging.debug('Maximum attempts reached.')
+                    print('Maximum attempts reached.')
                     return section, False
 
 
@@ -177,7 +184,7 @@ def main():
     section_urls = {section: base_section_select_url + urlencode({'electLessonIds': id})
                     for section, id in sections.items()}
 
-    interval = input('Enter the interval (ms) between attempts: ')
+    interval = input('Enter the interval (seconds) between attempts: ')
     maximum_attempts = input('Enter the maximum number of attempts: ')
 
     futures = [attempt(url, section, cookies, interval, maximum_attempts) for section, url in section_urls.items()]
