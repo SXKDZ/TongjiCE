@@ -15,6 +15,7 @@ import asyncio
 import aiohttp
 import getpass
 import logging
+import _jsonnet
 import calendar
 from itertools import groupby
 from collections import defaultdict
@@ -28,7 +29,7 @@ USER_AGENT = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) '
 
 
 def get_login_cookies(browser, userid, password):
-    browser.visit('http://4m3.tongji.edu.cn/eams/login.action')
+    browser.visit('http://4m3.tongji.edu.cn')
 
     login_link = browser.find_by_text('统一身份认证登录')
     login_link.click()
@@ -46,9 +47,9 @@ def get_login_cookies(browser, userid, password):
     return browser.cookies.all()
 
 
-def extract_dict_from_html(browser, html, pattern, group_id=1):
+def extract_dict_from_html(html, pattern, group_id=1):
     js = re.search(pattern, html).group(group_id)
-    return browser.evaluate_script(js)
+    return json.loads(_jsonnet.evaluate_snippet('snippet', js))
 
 
 def convert_weekstate_to_string(weekstate):
@@ -108,10 +109,10 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
 def main():
     # http://cx-freeze.readthedocs.org/en/latest/faq.html
     if getattr(sys, 'frozen', False):
-        # frozen
+    # frozen
         base_path = os.path.dirname(sys.executable)
     else:
-        # unfrozen
+    # unfrozen
         base_path = os.path.dirname(os.path.abspath(__file__))
     
     phantomjs_path = os.path.join(base_path, 'phantomjs')
@@ -152,7 +153,7 @@ def main():
     browser.visit(entrance_link)  # it is supposed to visit the entrance page in prior requesting data (weird, uh?!)
     browser.visit(entrance_data_link)
     all_courses = browser.html
-    all_courses = extract_dict_from_html(browser, all_courses, r'var lessonJSONs = (\[.*\]);', 1)
+    all_courses = extract_dict_from_html(all_courses, r'var lessonJSONs = (\[.*\]);', 1)
     all_courses_indexed_by_no = {i['no']: i for i in all_courses}
     all_courses_indexed_by_code = defaultdict(list)
     for i in all_courses:
@@ -161,7 +162,7 @@ def main():
     plan_course_link = 'http://4m3.tongji.edu.cn/eams/tJStdElectCourse!planCourses.action'
     browser.visit(plan_course_link)
     planned_courses = browser.html
-    planned_courses = extract_dict_from_html(browser, planned_courses, r'window.planCourses = (\[.*\]);', 1)
+    planned_courses = extract_dict_from_html(planned_courses, r'window.planCourses = (\[.*\]);', 1)
 
     print('Available planned courses:')
     for school_year, group in groupby(planned_courses, lambda x: x['coruseSchoolYear']):  # should be a typo anyway
