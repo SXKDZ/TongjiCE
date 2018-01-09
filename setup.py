@@ -8,7 +8,8 @@ setup(
     options = {
         'build_exe': {
             'packages': ['encodings', 'asyncio', '_jsonnet', 'idna'],
-            'optimize': 2
+            'optimize': 2,
+            'include_files': ['phantomjs']
         },
     },
     executables = [

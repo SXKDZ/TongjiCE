@@ -104,7 +104,7 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
 
 
 def main():
-    browser = Browser('phantomjs')
+    browser = Browser('phantomjs', **{'executable_path':'./phantomjs'})
 
     userid = input('Enter student matriculation ID: ')
     password = getpass.getpass('Enter password: ')
