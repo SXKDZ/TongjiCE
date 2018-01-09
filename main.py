@@ -6,6 +6,7 @@ https://sxkdz.org
 
 Disclaimer: use with your own discretion!
 """
+import os
 import re
 import sys
 import json
@@ -67,9 +68,11 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
         if interval == 'random':
             interval = -1
         else:
-            interval = int(interval)
+            interval = float(interval)
         if maximum_attempts == 'infinity':
             maximum_attempts = -1
+        else:
+            maximum_attempst = int(maximum_attempts)
         attempt_count = 0
         while True:
             print('Starting attempt #{} by accessing {}'.format(attempt_count, url))
@@ -104,7 +107,16 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
 
 
 def main():
-    browser = Browser('phantomjs', **{'executable_path':'./phantomjs'})
+    # http://cx-freeze.readthedocs.org/en/latest/faq.html
+    if getattr(sys, 'frozen', False):
+    # frozen
+        base_path = os.path.dirname(sys.executable)
+    else:
+    # unfrozen
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    phantomjs_path = os.path.join(base_path, 'phantomjs')
+    browser = Browser('phantomjs', **{'executable_path': phantomjs_path})
 
     userid = input('Enter student matriculation ID: ')
     password = getpass.getpass('Enter password: ')
@@ -171,7 +183,7 @@ def main():
                                             section['teachers']))
             for arrangement in section['arrangeInfo']:
                 print('{} #{}-#{} ({})'.format(
-                    calendar.day_name[arrangement['weekDay']],
+                    calendar.day_name[arrangement['weekDay'] - 1],
                     arrangement['startUnit'],
                     arrangement['endUnit'],
                     convert_weekstate_to_string(arrangement['weekState'])))
