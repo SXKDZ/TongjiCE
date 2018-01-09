@@ -1,6 +1,12 @@
 import sys
 from cx_Freeze import setup, Executable
 
+# GUI applications require a different base on Windows (the default is for a
+# console application).
+base = None
+if sys.platform == 'win32':
+    base = 'Win32GUI'
+
 setup(
     name = 'TongjiCE',
     version = '1.2',
@@ -13,6 +19,6 @@ setup(
         },
     },
     executables = [
-        Executable('main.py', base=None, targetName='TongjiCE')
+        Executable('main.py', base=base, targetName='TongjiCE')
     ]
 )

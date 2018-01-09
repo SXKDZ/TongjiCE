@@ -128,7 +128,7 @@ def main():
     # enumerate entrance for course selection
     i = 0
     entrances = {}
-    print('Available entrance for course selection:')
+    print('Available entrances for course selection:')
     while True:
         try:
             entrance = browser.find_by_id('electIndexNotice' + str(i)).first
