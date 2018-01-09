@@ -71,7 +71,7 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
         if maximum_attempts == 'infinity':
             maximum_attempts = -1
         else:
-            maximum_attempst = int(maximum_attempts)
+            maximum_attempts = int(maximum_attempts)
         attempt_count = 0
         while True:
             print('Starting attempt #{} by accessing {}'.format(attempt_count, url))
