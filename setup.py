@@ -13,7 +13,7 @@ setup(
     description = 'Automatically course selection for Tongji University',
     options = {
         'build_exe': {
-            'packages': ['encodings', 'asyncio', '_jsonnet', 'idna'],
+            'packages': ['encodings', 'asyncio', 'idna'],
             'optimize': 2,
             'include_files': ['phantomjs']
         },
