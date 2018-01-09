@@ -5,7 +5,7 @@ from cx_Freeze import setup, Executable
 # console application).
 base = None
 if sys.platform == 'win32':
-    base = 'Win32GUI'
+    base = 'Console'
 
 setup(
     name = 'TongjiCE',
