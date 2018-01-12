@@ -7,48 +7,21 @@ https://sxkdz.org
 Disclaimer: use with your own discretion!
 """
 import os
-import re
 import sys
-import json
 import random
 import asyncio
 import aiohttp
 import getpass
-import logging
 import calendar
 from itertools import groupby
-from collections import defaultdict
-from urllib.parse import urljoin, urlparse, parse_qs, urlencode
 from splinter import Browser
-from splinter.exceptions import ElementDoesNotExist
+
+from utility import *
+
 
 USER_AGENT = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) '
               'AppleWebKit/537.36 (KHTML, like Gecko) '
               'Chrome/63.0.3239.84 Safari/537.36')
-
-
-def get_login_cookies(browser, userid, password):
-    browser.visit('http://4m3.tongji.edu.cn/eams/login.action')
-
-    login_link = browser.find_by_text('统一身份认证登录')
-    login_link.click()
-
-    browser.fill('Ecom_User_ID', userid)
-    browser.fill('Ecom_Password', password)
-    login_button = browser.find_by_name('submit')
-    login_button.click()
-
-    if browser.is_text_present('Login failed, please try again.'):
-        raise Exception('Login failed!')
-
-    assert 'JSESSIONID' in browser.cookies.all()
-
-    return browser.cookies.all()
-
-
-def extract_dict_from_html(browser, html, pattern, group_id=1):
-    js_snippet = re.search(pattern, html).group(group_id)
-    return browser.evaluate_script(js_snippet)
 
 
 def convert_weekstate_to_string(weekstate):
@@ -60,6 +33,21 @@ def convert_weekstate_to_string(weekstate):
         return '{} Week #{}-#{}'.format(prefix, start, end)
 
     return 'Week #{}-#{}'.format(start, end)
+
+
+def start_selection(config, cookies, section_urls, all_courses_indexed_by_no):
+    interval = config['interval']
+    maximum_attempts = config['maximum_attempts']
+
+    futures = [attempt(url, section, cookies, interval, maximum_attempts) for section, url in section_urls.items()]
+    loop = asyncio.get_event_loop()
+    finished, _ = loop.run_until_complete(asyncio.wait(futures))
+
+    print('Results:')
+    for section in finished:
+        print('{} {}: {}'.format(section.result()[0],
+                                 all_courses_indexed_by_no[section.result()[0]]['name'],
+                                 'Succeed' if section.result()[1] else 'Failed'))
 
 
 async def attempt(url, section, cookies, interval, maximum_attempts):
@@ -108,10 +96,10 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
 def main():
     # http://cx-freeze.readthedocs.org/en/latest/faq.html
     if getattr(sys, 'frozen', False):
-    # frozen
+        # frozen
         base_path = os.path.dirname(sys.executable)
     else:
-    # unfrozen
+        # unfrozen
         base_path = os.path.dirname(os.path.abspath(__file__))
     
     phantomjs_path = os.path.join(base_path, 'phantomjs')
@@ -121,47 +109,18 @@ def main():
     password = getpass.getpass('Enter password: ')
     cookies = get_login_cookies(browser, userid, password)
 
-    entrance_navigation_link = 'http://4m3.tongji.edu.cn/eams/doorOfStdElectCourse.action'
-    browser.visit(entrance_navigation_link)
-
-    # enumerate entrance for course selection
-    i = 0
-    entrances = {}
-    print('Available entrances for course selection:')
-    while True:
-        try:
-            entrance = browser.find_by_id('electIndexNotice' + str(i)).first
-            title = entrance.find_by_tag('h2').first
-            link = entrance.find_by_text('进入选课>>>>')
-            entrances[i] = urljoin(entrance_navigation_link, link['href'])
-            print('{}: {}'.format(i, title.text))
-            i += 1
-        except ElementDoesNotExist:
-            break
-
+    entrances = enumerate_entrance(browser)
     if len(entrances) == 0:
         print('No available entrances at present. Please come back later...')
         sys.exit(0)
 
     entrance_id = input('Enter the entrance ID: ')
     entrance_link = entrances[int(entrance_id)]
-    entrance_profile_id = parse_qs(urlparse(entrance_link).query)['electionProfile.id'][0]
-    entrance_data_link = 'http://4m3.tongji.edu.cn/eams/tJStdElectCourse!data.action?'
-    entrance_data_link += urlencode({'profileId': entrance_profile_id})
 
-    browser.visit(entrance_link)  # it is supposed to visit the entrance page in prior requesting data (weird, uh?!)
-    browser.visit(entrance_data_link)
-    all_courses = browser.html
-    all_courses = extract_dict_from_html(browser, all_courses, r'var lessonJSONs = (\[.*\]);', 1)
-    all_courses_indexed_by_no = {i['no']: i for i in all_courses}
-    all_courses_indexed_by_code = defaultdict(list)
-    for i in all_courses:
-        all_courses_indexed_by_code[i['code']].append(i)
+    planned_courses, all_courses_indexed_by_no, all_courses_indexed_by_code = \
+        get_course_information(browser, entrance_link)
 
-    plan_course_link = 'http://4m3.tongji.edu.cn/eams/tJStdElectCourse!planCourses.action'
-    browser.visit(plan_course_link)
-    planned_courses = browser.html
-    planned_courses = extract_dict_from_html(browser, planned_courses, r'window.planCourses = (\[.*\]);', 1)
+    browser.quit()
 
     print('Available planned courses:')
     for school_year, group in groupby(planned_courses, lambda x: x['coruseSchoolYear']):  # should be a typo anyway
@@ -195,20 +154,12 @@ def main():
     section_urls = {section: base_section_select_url + urlencode({'electLessonIds': id})
                     for section, id in sections.items()}
 
-    interval = input('Enter the interval (seconds) between attempts: ')
-    maximum_attempts = input('Enter the maximum number of attempts: ')
+    config = {
+        'interval': input('Enter the interval (seconds) between attempts: '),
+        'maximum_attempts': input('Enter the maximum number of attempts: ')
+    }
 
-    futures = [attempt(url, section, cookies, interval, maximum_attempts) for section, url in section_urls.items()]
-    loop = asyncio.get_event_loop()
-    finished, _ = loop.run_until_complete(asyncio.wait(futures))
-
-    print('Results:')
-    for section in finished:
-        print('{} {}: {}'.format(section.result()[0],
-                                 all_courses_indexed_by_no[section.result()[0]]['name'],
-                                 'Succeed' if section.result()[1] else 'Failed'))
-
-    browser.quit()
+    start_selection(config, cookies, section_urls, all_courses_indexed_by_no)
 
 
 if __name__ == '__main__':
