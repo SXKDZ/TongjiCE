@@ -134,8 +134,6 @@ def main():
         planned_courses, all_courses_indexed_by_no, all_courses_indexed_by_code = \
             get_course_information(browser, entrance_link)
 
-        browser.quit()
-
         print('Available planned courses:')
         for school_year, group in groupby(planned_courses, lambda x: x['coruseSchoolYear']):  # should be a typo anyway
             print(school_year)
@@ -190,6 +188,8 @@ def main():
         base_section_select_url = 'http://4m3.tongji.edu.cn/eams/tJStdElectCourse!batchOperator.action?'
         section_urls = {section: base_section_select_url + urlencode({'electLessonIds': id})
                         for section, id in sections.items()}
+
+    browser.quit()
 
     start_selection(config, cookies, section_urls, all_courses_indexed_by_no)
 
