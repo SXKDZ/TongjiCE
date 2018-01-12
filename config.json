@@ -1,0 +1,8 @@
+{
+    "student_ID": "student ID",
+    "password": "password",
+    "entrance_ID": 0,
+    "courses": ["42017001", "42036103"],
+    "interval": "1",
+    "maximum_attempts": "1000"
+}

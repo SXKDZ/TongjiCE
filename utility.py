@@ -29,21 +29,21 @@ def get_login_cookies(browser, userid, password):
     return browser.cookies.all()
 
 
-def enumerate_entrance(browser):
+def enumerate_entrance(browser, echo=True):
     entrance_navigation_link = 'http://4m3.tongji.edu.cn/eams/doorOfStdElectCourse.action'
     browser.visit(entrance_navigation_link)
 
     # enumerate entrance for course selection
     i = 0
     entrances = {}
-    print('Available entrances for course selection:')
     while True:
         try:
             entrance = browser.find_by_id('electIndexNotice' + str(i)).first
-            title = entrance.find_by_tag('h2').first
             link = entrance.find_by_text('进入选课>>>>')
             entrances[i] = urljoin(entrance_navigation_link, link['href'])
-            print('{}: {}'.format(i, title.text))
+            if echo:
+                title = entrance.find_by_tag('h2').first
+                print('{}: {}'.format(i, title.text))
             i += 1
         except ElementDoesNotExist:
             break

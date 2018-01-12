@@ -8,10 +8,12 @@ Disclaimer: use with your own discretion!
 """
 import os
 import sys
+import json
 import random
 import asyncio
 import aiohttp
 import getpass
+import argparse
 import calendar
 from itertools import groupby
 from splinter import Browser
@@ -72,7 +74,7 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
                     print('Conflict courses are selected!')
                     return section, False
                 elif '登录失败' in data:
-                    print('Unknown error occurred!')
+                    print('Unknown error occurred! Perhaps you have already selected this course.')
                     return section, False
                 elif '人数已满' in data:
                     print('Failed to select course {} due to limitation on capacity. Retrying...'
@@ -93,6 +95,14 @@ async def attempt(url, section, cookies, interval, maximum_attempts):
                     return section, False
 
 
+def get_arguments():
+    parser = argparse.ArgumentParser(usage='%(prog)s [options]')
+    parser.add_argument('-C', '--conf',
+                        nargs='?', type=argparse.FileType('r'), default=sys.stdin,
+                        help='load the configuration from the specified file')
+    return vars(parser.parse_args())
+
+
 def main():
     # http://cx-freeze.readthedocs.org/en/latest/faq.html
     if getattr(sys, 'frozen', False):
@@ -105,59 +115,81 @@ def main():
     phantomjs_path = os.path.join(base_path, 'phantomjs')
     browser = Browser('phantomjs', **{'executable_path': phantomjs_path})
 
-    userid = input('Enter student matriculation ID: ')
-    password = getpass.getpass('Enter password: ')
-    cookies = get_login_cookies(browser, userid, password)
+    arguments = get_arguments()
 
-    entrances = enumerate_entrance(browser)
-    if len(entrances) == 0:
-        print('No available entrances at present. Please come back later...')
-        sys.exit(0)
+    if arguments['conf'] == sys.stdin:
+        userid = input('Enter student matriculation ID: ')
+        password = getpass.getpass('Enter password: ')
+        cookies = get_login_cookies(browser, userid, password)
 
-    entrance_id = input('Enter the entrance ID: ')
-    entrance_link = entrances[int(entrance_id)]
+        print('Available entrances for course selection:')
+        entrances = enumerate_entrance(browser)
+        if len(entrances) == 0:
+            print('No available entrances at present. Please come back later...')
+            sys.exit(0)
 
-    planned_courses, all_courses_indexed_by_no, all_courses_indexed_by_code = \
-        get_course_information(browser, entrance_link)
+        entrance_id = input('Enter the entrance ID: ')
+        entrance_link = entrances[int(entrance_id)]
 
-    browser.quit()
+        planned_courses, all_courses_indexed_by_no, all_courses_indexed_by_code = \
+            get_course_information(browser, entrance_link)
 
-    print('Available planned courses:')
-    for school_year, group in groupby(planned_courses, lambda x: x['coruseSchoolYear']):  # should be a typo anyway
-        print(school_year)
-        for course in group:
-            print('{}: {} ({}, {} {})'.format(
-                course['code'], course['name'], course['courseTypeName'],
-                course['credits'], 'credits' if course['credits'] > 1 else 'credit'))
+        browser.quit()
 
-    courses_to_be_selected = input('Enter course IDs that you want to automatically selected, split with space: ')
+        print('Available planned courses:')
+        for school_year, group in groupby(planned_courses, lambda x: x['coruseSchoolYear']):  # should be a typo anyway
+            print(school_year)
+            for course in group:
+                print('{}: {} ({}, {} {})'.format(
+                    course['code'], course['name'], course['courseTypeName'],
+                    course['credits'], 'credits' if course['credits'] > 1 else 'credit'))
 
-    for course in courses_to_be_selected.split():
-        print('Available section(s) for {}:'.format(course))
-        for section in sorted(all_courses_indexed_by_code[course], key=lambda x: x['no']):
-            print('{}: {} ({}by {})'.format(section['no'],
-                                            section['name'],
-                                            section['remark'] + ', ' if section['remark'] is None else '',
-                                            section['teachers']))
-            for arrangement in section['arrangeInfo']:
-                print('{} #{}-#{} ({})'.format(
-                    calendar.day_name[arrangement['weekDay'] - 1],
-                    arrangement['startUnit'],
-                    arrangement['endUnit'],
-                    convert_weekstate_to_string(arrangement['weekState'])))
+        courses_to_be_selected = input('Enter course IDs that you want to automatically selected, split with space: ')
 
-    sections_to_be_selected = input('Enter sections IDs that you want to automatically selected, split with space: ')
-    sections = {}
-    for section in sections_to_be_selected.split():
-        sections[section] = all_courses_indexed_by_no[section]['id']
-    base_section_select_url = 'http://4m3.tongji.edu.cn/eams/tJStdElectCourse!batchOperator.action?'
-    section_urls = {section: base_section_select_url + urlencode({'electLessonIds': id})
-                    for section, id in sections.items()}
+        for course in courses_to_be_selected.split():
+            print('Available section(s) for {}:'.format(course))
+            for section in sorted(all_courses_indexed_by_code[course], key=lambda x: x['no']):
+                print('{}: {} ({}by {})'.format(section['no'],
+                                                section['name'],
+                                                section['remark'] + ', ' if section['remark'] is None else '',
+                                                section['teachers']))
+                for arrangement in section['arrangeInfo']:
+                    print('{} #{}-#{} ({})'.format(
+                        calendar.day_name[arrangement['weekDay'] - 1],
+                        arrangement['startUnit'],
+                        arrangement['endUnit'],
+                        convert_weekstate_to_string(arrangement['weekState'])))
 
-    config = {
-        'interval': input('Enter the interval (seconds) between attempts: '),
-        'maximum_attempts': input('Enter the maximum number of attempts: ')
-    }
+        sections_to_be_selected = input('Enter sections IDs that you want to automatically selected, split with space: ')
+        sections = {}
+        for section in sections_to_be_selected.split():
+            sections[section] = all_courses_indexed_by_no[section]['id']
+        base_section_select_url = 'http://4m3.tongji.edu.cn/eams/tJStdElectCourse!batchOperator.action?'
+        section_urls = {section: base_section_select_url + urlencode({'electLessonIds': id})
+                        for section, id in sections.items()}
+
+        config = {
+            'interval': input('Enter the interval (seconds) between attempts: '),
+            'maximum_attempts': input('Enter the maximum number of attempts: ')
+        }
+
+    else:
+        config = json.load(arguments['conf'])
+        userid = config['student_ID']
+        password = config['password']
+        cookies = get_login_cookies(browser, userid, password)
+        entrances = enumerate_entrance(browser, echo=False)
+        entrance_link = entrances[int(config['entrance_ID'])]
+
+        planned_courses, all_courses_indexed_by_no, all_courses_indexed_by_code = \
+            get_course_information(browser, entrance_link)
+
+        sections = {}
+        for section in config['courses']:
+            sections[section] = all_courses_indexed_by_no[section]['id']
+        base_section_select_url = 'http://4m3.tongji.edu.cn/eams/tJStdElectCourse!batchOperator.action?'
+        section_urls = {section: base_section_select_url + urlencode({'electLessonIds': id})
+                        for section, id in sections.items()}
 
     start_selection(config, cookies, section_urls, all_courses_indexed_by_no)
 
