@@ -1,4 +1,5 @@
 import re
+import time
 from collections import defaultdict
 from urllib.parse import urlparse, parse_qs, urljoin, urlencode
 
@@ -13,8 +14,10 @@ def extract_dict_from_html(browser, html, pattern, group_id=1):
 def get_login_cookies(browser, userid, password):
     browser.visit('http://4m3.tongji.edu.cn/eams/login.action')
 
-    login_link = browser.find_by_text('统一身份认证登录')
-    login_link.click()
+    # login_link = browser.find_by_text('统一身份认证登录')
+    # login_link.click()
+
+    time.sleep(2)
 
     browser.fill('Ecom_User_ID', userid)
     browser.fill('Ecom_Password', password)
